@@ -241,6 +241,38 @@ def calcular_racha_actual(df_habito_ordenado):
     return racha
 
 
+def construir_html_mapa_consistencia(df_habitos, habitos_lista):
+    fechas_unicas = sorted(df_habitos["Fecha_dt"].dropna().unique())
+    ancho_celda = 24
+
+    partes = ['<div style="overflow-x:auto; padding-bottom:8px;"><div style="display:inline-block; min-width:100%;">']
+
+    partes.append('<div style="display:flex; margin-left:130px; gap:3px; margin-bottom:6px;">')
+    for f in fechas_unicas:
+        etiqueta = pd.Timestamp(f).strftime("%d/%m")
+        partes.append(f'<div style="width:{ancho_celda}px; font-size:9px; color:#8b93a7; text-align:center; white-space:nowrap;">{etiqueta}</div>')
+    partes.append("</div>")
+
+    for habito in habitos_lista:
+        partes.append('<div style="display:flex; align-items:center; gap:3px; margin-bottom:4px;">')
+        partes.append(f'<div style="width:126px; font-size:12px; color:#e5e7eb; flex-shrink:0; padding-right:6px;">{habito}</div>')
+        for f in fechas_unicas:
+            fila = df_habitos[(df_habitos["Habito"] == habito) & (df_habitos["Fecha_dt"] == f)]
+            if len(fila) == 0:
+                color = "#1a1f2b"
+            elif bool(fila["Cumplido"].iloc[0]):
+                color = "#10b981"
+            else:
+                color = "#ef4444"
+            fecha_str = pd.Timestamp(f).strftime("%d/%m/%Y")
+            titulo = f"{habito} - {fecha_str}"
+            partes.append(f'<div title="{titulo}" style="width:{ancho_celda}px; height:20px; background:{color}; border-radius:5px; flex-shrink:0;"></div>')
+        partes.append("</div>")
+
+    partes.append("</div></div>")
+    return "".join(partes)
+
+
 PLOTLY_LAYOUT = dict(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
@@ -595,16 +627,8 @@ elif seccion == "✅ Hábitos":
         st.plotly_chart(estilizar(fig_pct), use_container_width=True)
 
         st.subheader("🗓️ Mapa de consistencia")
-        df_pivot = df_habitos.pivot_table(index="Habito", columns="Fecha_dt", values="Cumplido", aggfunc="first")
-        df_pivot = df_pivot.reindex(HABITOS)
-        fig_heatmap = px.imshow(
-            df_pivot.astype(float),
-            labels=dict(x="Fecha", y="Hábito", color="Cumplido"),
-            color_continuous_scale=[[0, "#ef4444"], [1, "#10b981"]],
-            aspect="auto",
-        )
-        fig_heatmap.update_layout(coloraxis_showscale=False)
-        st.plotly_chart(estilizar(fig_heatmap), use_container_width=True)
+        html_mapa = construir_html_mapa_consistencia(df_habitos, HABITOS)
+        st.markdown(html_mapa, unsafe_allow_html=True)
 
         with st.expander("Ver tabla completa de hábitos"):
             tabla = df_habitos.pivot_table(index="Fecha_dt", columns="Habito", values="Cumplido", aggfunc="first")
