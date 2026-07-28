@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import calendar as calmod
 import html as htmlmod
 import plotly.express as px
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Dashboard Personal", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
 
@@ -391,6 +392,49 @@ def formatear_evento(evento):
         return titulo, dt.strftime("%d/%m/%Y"), "Todo el día"
 
 
+
+@st.cache_data(ttl=300)
+def cargar_citas():
+    client = conectar_gspread()
+    sheet = client.open_by_key(HABITS_SHEET_ID)
+    hoja = sheet.worksheet("Citas")
+    valores = hoja.get_all_values()
+    citas = []
+    for fila in valores[1:]:
+        if len(fila) >= 2 and fila[1].strip():
+            citas.append((fila[1].strip(), fila[0].strip()))
+    return citas
+
+
+def construir_widget_citas(citas):
+    if not citas:
+        return "<p style='color:#8b93a7; font-family:Inter,sans-serif;'>Todavía no hay citas guardadas. Manda una con /cita en Telegram.</p>"
+    citas_js = json.dumps([{"frase": f, "fecha": d} for f, d in citas], ensure_ascii=False)
+    html = f"""
+    <div style="font-family:'Inter',sans-serif; background:linear-gradient(155deg, rgba(30,35,48,0.9), rgba(18,21,29,0.9)); border:1px solid #262b3a; border-radius:16px; padding:26px; text-align:center; min-height:110px; display:flex; flex-direction:column; justify-content:center;">
+        <div id="cita-texto" style="color:#e5e7eb; font-size:17px; font-style:italic; line-height:1.5; transition:opacity 0.4s ease;">Cargando...</div>
+        <div id="cita-fecha" style="color:#8b93a7; font-size:12px; margin-top:12px;"></div>
+    </div>
+    <script>
+        const citas = {citas_js};
+        let idx = 0;
+        function mostrarCita() {{
+            const caja = document.getElementById('cita-texto');
+            caja.style.opacity = 0;
+            setTimeout(() => {{
+                caja.innerText = '\u201c' + citas[idx].frase + '\u201d';
+                document.getElementById('cita-fecha').innerText = citas[idx].fecha;
+                caja.style.opacity = 1;
+                idx = (idx + 1) % citas.length;
+            }}, 400);
+        }}
+        mostrarCita();
+        setInterval(mostrarCita, 10000);
+    </script>
+    """
+    return html
+
+
 # ---------- Sidebar ----------
 with st.sidebar:
     st.markdown("## 📊 Dashboard")
@@ -522,6 +566,13 @@ if seccion == "🏠 Inicio":
 
         tarjeta("🔥 Racha actual", f"{mejor_racha} días")
         tarjeta("🏋️ Entrenos este mes", entrenos_este_mes)
+
+    st.divider()
+
+    # ---- Citas / frases guardadas ----
+    st.markdown('<div class="card-label">📖 CITA DEL MOMENTO</div>', unsafe_allow_html=True)
+    citas = cargar_citas()
+    components.html(construir_widget_citas(citas), height=170)
 
     st.divider()
 
