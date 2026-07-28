@@ -3,12 +3,15 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from datetime import datetime, timezone
 import plotly.express as px
 
 st.set_page_config(page_title="Dashboard Personal", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
 
 WORKOUTS_SHEET_ID = "1AFwTKUF89S3sNhcjc1KZ5l6NqjSb1Z3VL11FwLz-mTo"
 HABITS_SHEET_ID = "1LXbi7RVzaPgot8pXQt7GZN4GqYydZXpoIbdh91zRdyA"
+CALENDAR_ID = "marcoscas1508@gmail.com"
 
 HABITOS = [
     "Ejercicio hombros", "Gym", "Leer", "No porno",
@@ -181,6 +184,47 @@ def estilizar(fig):
     return fig
 
 
+
+def conectar_calendar():
+    scopes = ["https://www.googleapis.com/auth/calendar"]
+    creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return build("calendar", "v3", credentials=creds)
+
+
+@st.cache_data(ttl=120)
+def cargar_proximos_eventos():
+    service = conectar_calendar()
+    ahora = datetime.now(timezone.utc).isoformat()
+    resultado = service.events().list(
+        calendarId=CALENDAR_ID, timeMin=ahora, maxResults=15,
+        singleEvents=True, orderBy="startTime"
+    ).execute()
+    return resultado.get("items", [])
+
+
+def crear_evento_calendar(titulo, fecha_inicio, hora_inicio, fecha_fin, hora_fin, descripcion=""):
+    service = conectar_calendar()
+    evento = {
+        "summary": titulo,
+        "description": descripcion,
+        "start": {"dateTime": f"{fecha_inicio}T{hora_inicio}:00", "timeZone": "Europe/Madrid"},
+        "end": {"dateTime": f"{fecha_fin}T{hora_fin}:00", "timeZone": "Europe/Madrid"},
+    }
+    service.events().insert(calendarId=CALENDAR_ID, body=evento).execute()
+
+
+def formatear_evento(evento):
+    inicio_raw = evento["start"].get("dateTime", evento["start"].get("date"))
+    titulo = evento.get("summary", "(Sin título)")
+    if "T" in inicio_raw:
+        dt = datetime.fromisoformat(inicio_raw)
+        return titulo, dt.strftime("%d/%m/%Y"), dt.strftime("%H:%M")
+    else:
+        dt = datetime.strptime(inicio_raw, "%Y-%m-%d")
+        return titulo, dt.strftime("%d/%m/%Y"), "Todo el día"
+
+
 # ---------- Sidebar ----------
 with st.sidebar:
     st.markdown("## 📊 Dashboard")
@@ -294,15 +338,60 @@ elif seccion == "✅ Hábitos":
             tabla = tabla.sort_index(ascending=False)
             st.dataframe(tabla, use_container_width=True)
 
-# ============ CALENDARIO (placeholder) ============
+# ============ CALENDARIO ============
 else:
     st.title("📅 Calendario")
-    st.markdown("""
-        <div class="card" style="text-align:center; padding: 60px 20px;">
-            <div style="font-size: 40px; margin-bottom: 10px;">🚧</div>
-            <div class="card-value" style="font-size: 20px;">Próximamente</div>
-            <div class="card-label" style="margin-top: 8px;">
-                Esta sección mostrará tu Google Calendar en cuanto conectemos esa integración.
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+
+    col_izq, col_der = st.columns([3, 2])
+
+    with col_izq:
+        st.subheader("Próximos eventos")
+        try:
+            eventos = cargar_proximos_eventos()
+        except Exception as e:
+            eventos = []
+            st.error(f"No se pudo conectar con Google Calendar: {e}")
+
+        if not eventos:
+            st.info("No tienes eventos próximos, o el calendario está vacío.")
+        else:
+            for evento in eventos:
+                titulo, fecha_str, hora_str = formatear_evento(evento)
+                st.markdown(f"""
+                    <div class="card">
+                        <div class="card-label">{fecha_str} — {hora_str}</div>
+                        <div class="card-value" style="font-size: 18px;">{titulo}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+    with col_der:
+        st.subheader("➕ Crear evento")
+        with st.form("form_nuevo_evento", clear_on_submit=True):
+            titulo_nuevo = st.text_input("Título")
+            fecha_inicio = st.date_input("Fecha")
+            col_h1, col_h2 = st.columns(2)
+            with col_h1:
+                hora_inicio = st.time_input("Hora inicio")
+            with col_h2:
+                hora_fin = st.time_input("Hora fin")
+            descripcion = st.text_area("Descripción (opcional)", height=80)
+            enviado = st.form_submit_button("Crear evento", use_container_width=True)
+
+            if enviado:
+                if not titulo_nuevo.strip():
+                    st.warning("Ponle un título al evento.")
+                else:
+                    try:
+                        crear_evento_calendar(
+                            titulo_nuevo,
+                            fecha_inicio.strftime("%Y-%m-%d"),
+                            hora_inicio.strftime("%H:%M"),
+                            fecha_inicio.strftime("%Y-%m-%d"),
+                            hora_fin.strftime("%H:%M"),
+                            descripcion,
+                        )
+                        st.cache_data.clear()
+                        st.success("Evento creado ✅")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"No se pudo crear el evento: {e}")
