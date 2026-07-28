@@ -429,10 +429,39 @@ def construir_widget_citas(citas):
             }}, 400);
         }}
         mostrarCita();
-        setInterval(mostrarCita, 10000);
+        setInterval(mostrarCita, 30000);
     </script>
     """
     return html
+
+
+
+def ya_registro_estado_hoy():
+    client = conectar_gspread()
+    sheet = client.open_by_key(HABITS_SHEET_ID)
+    hoja = sheet.worksheet("Estado_Animo")
+    valores = hoja.get_all_values()
+    hoy_str = datetime.now().strftime("%d/%m/%Y")
+    for fila in valores[1:]:
+        if fila and fila[0] == hoy_str:
+            return True, fila[1] if len(fila) > 1 else None
+    return False, None
+
+
+def registrar_estado_animo(estado):
+    client = conectar_gspread()
+    sheet = client.open_by_key(HABITS_SHEET_ID)
+    hoja = sheet.worksheet("Estado_Animo")
+    hoy_str = datetime.now().strftime("%d/%m/%Y")
+    hoja.append_row([hoy_str, estado], value_input_option="USER_ENTERED")
+
+
+def registrar_nota_diaria(mensaje):
+    client = conectar_gspread()
+    sheet = client.open_by_key(HABITS_SHEET_ID)
+    hoja = sheet.worksheet("Notas_Diarias")
+    hoy_str = datetime.now().strftime("%d/%m/%Y")
+    hoja.append_row([hoy_str, mensaje], value_input_option="USER_ENTERED")
 
 
 # ---------- Sidebar ----------
@@ -576,25 +605,44 @@ if seccion == "🏠 Inicio":
 
     st.divider()
 
-    # ---- Notas rapidas (placeholder, aun sin persistencia) ----
-    st.markdown('<div class="card-label">📝 NOTAS RÁPIDAS</div>', unsafe_allow_html=True)
-    st.markdown("""
-        <div class="card">
-            <div style="color:#8b93a7; font-size:13px; margin-bottom:10px;">
-                🚧 Esta sección todavía no guarda datos — hay que conectarla a Google Sheets o Notion. De momento es solo el diseño.
-            </div>
-            <div style="display:flex; gap:24px; flex-wrap:wrap;">
-                <div style="flex:1; min-width:200px;">
-                    <div style="color:#e5e7eb; font-weight:600; margin-bottom:6px;">¿Qué salió bien hoy?</div>
-                    <div style="color:#8b93a7; font-size:13px;">— (pendiente de conectar)</div>
-                </div>
-                <div style="flex:1; min-width:200px;">
-                    <div style="color:#e5e7eb; font-weight:600; margin-bottom:6px;">¿Qué puedo mejorar?</div>
-                    <div style="color:#8b93a7; font-size:13px;">— (pendiente de conectar)</div>
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # ---- Estado de animo (una vez al dia) ----
+    st.markdown('<div class="card-label">😊 ¿CÓMO TE SIENTES HOY?</div>', unsafe_allow_html=True)
+    ya_registrado, estado_guardado = ya_registro_estado_hoy()
+
+    if ya_registrado:
+        emoji_estado = {"Bien": "🟢", "Regular": "🟡", "Mal": "🔴"}.get(estado_guardado, "✅")
+        st.markdown(f'<div class="card">Ya registraste tu estado de hoy: {emoji_estado} <b>{estado_guardado}</b></div>', unsafe_allow_html=True)
+    else:
+        col_verde, col_amarilla, col_roja = st.columns(3)
+        with col_verde:
+            if st.button("🟢 Bien", use_container_width=True):
+                registrar_estado_animo("Bien")
+                st.cache_data.clear()
+                st.rerun()
+        with col_amarilla:
+            if st.button("🟡 Regular", use_container_width=True):
+                registrar_estado_animo("Regular")
+                st.cache_data.clear()
+                st.rerun()
+        with col_roja:
+            if st.button("🔴 Mal", use_container_width=True):
+                registrar_estado_animo("Mal")
+                st.cache_data.clear()
+                st.rerun()
+
+    st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
+
+    # ---- Nota diaria: que salio bien hoy ----
+    st.markdown('<div class="card-label">📝 ¿QUÉ SALIÓ BIEN HOY?</div>', unsafe_allow_html=True)
+    with st.form("form_nota_diaria", clear_on_submit=True):
+        mensaje_nota = st.text_area("Escribe aquí", height=90, label_visibility="collapsed")
+        enviado_nota = st.form_submit_button("Enviar")
+        if enviado_nota:
+            if mensaje_nota.strip():
+                registrar_nota_diaria(mensaje_nota.strip())
+                st.success("Guardado ✅")
+            else:
+                st.warning("Escribe algo antes de enviar.")
 
 # ============ ENTRENOS ============
 elif seccion == "🏋️ Entrenos":
