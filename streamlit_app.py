@@ -23,54 +23,121 @@ HABITOS = [
 # ---------- Estilo visual ----------
 CSS = """
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, sans-serif;
+    }
+
     .stApp {
-        background-color: #0e1117;
+        background-color: #0a0c12;
+        background-image:
+            radial-gradient(circle at 15% 10%, rgba(37,99,235,0.10) 0%, transparent 40%),
+            radial-gradient(circle at 85% 90%, rgba(139,92,246,0.08) 0%, transparent 40%),
+            repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+            repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+        background-attachment: fixed;
     }
+
     [data-testid="stSidebar"] {
-        background-color: #161a23;
-        border-right: 1px solid #262b36;
+        background: linear-gradient(180deg, #12151f 0%, #0d0f16 100%);
+        border-right: 1px solid #20242f;
     }
+    [data-testid="stSidebar"] * {
+        font-family: 'Inter', sans-serif;
+    }
+
     .card {
-        background: linear-gradient(145deg, #1a1f2b, #151920);
-        border: 1px solid #262b36;
-        border-radius: 14px;
-        padding: 18px 20px;
+        background: linear-gradient(155deg, rgba(30,35,48,0.9), rgba(18,21,29,0.9));
+        border: 1px solid #262b3a;
+        border-radius: 16px;
+        padding: 20px 22px;
         margin-bottom: 14px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03);
+        transition: border-color 0.2s ease;
     }
+    .card:hover {
+        border-color: #2f3650;
+    }
+
     .card-label {
         color: #8b93a7;
-        font-size: 13px;
-        font-weight: 500;
+        font-size: 12px;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 6px;
+        letter-spacing: 0.8px;
+        margin-bottom: 8px;
     }
     .card-value {
         color: #ffffff;
         font-size: 28px;
         font-weight: 700;
+        letter-spacing: -0.3px;
     }
     .card-sub {
-        color: #4caf50;
+        color: #4ade80;
         font-size: 13px;
         margin-top: 4px;
     }
-    h1, h2, h3 {
+
+    h1 {
         color: #ffffff !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.5px;
+        background: linear-gradient(90deg, #ffffff, #b8c1d9);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
+    h2, h3 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.3px;
+    }
+
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #1a1f2b;
-        border-radius: 8px;
+        background-color: #161a24;
+        border-radius: 10px;
         padding: 8px 18px;
         color: #8b93a7;
+        border: 1px solid #232838;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #2563eb !important;
+        background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
         color: white !important;
+        border: none !important;
     }
+
+    div[data-testid="stButton"] > button {
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        box-shadow: 0 2px 10px rgba(37,99,235,0.35);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    div[data-testid="stButton"] > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(37,99,235,0.45);
+        color: white;
+    }
+
+    [data-testid="stRadio"] label {
+        font-size: 15px;
+    }
+
+    .stDataFrame, [data-testid="stExpander"] {
+        border-radius: 12px !important;
+        border: 1px solid #232838 !important;
+    }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #0a0c12; }
+    ::-webkit-scrollbar-thumb { background: #262b3a; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #333a4d; }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -175,14 +242,18 @@ def calcular_racha_actual(df_habito_ordenado):
 
 
 PLOTLY_LAYOUT = dict(
-    plot_bgcolor="#0e1117",
-    paper_bgcolor="#0e1117",
-    font_color="#e5e7eb",
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font_color="#c9cfdd",
+    font_family="Inter, sans-serif",
 )
+PALETA = ["#2563eb", "#7c3aed", "#06b6d4", "#f59e0b", "#ec4899", "#10b981", "#ef4444", "#8b5cf6"]
 
 
 def estilizar(fig):
     fig.update_layout(**PLOTLY_LAYOUT)
+    fig.update_xaxes(gridcolor="#1f2430", zerolinecolor="#1f2430")
+    fig.update_yaxes(gridcolor="#1f2430", zerolinecolor="#1f2430")
     return fig
 
 
@@ -243,18 +314,19 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
                 partes.append('<div style="min-height:90px;"></div>')
                 continue
             es_hoy = (anio == hoy.year and mes == hoy.month and dia == hoy.day)
-            borde = "2px solid #2563eb" if es_hoy else "1px solid #262b36"
+            borde = "1.5px solid #2563eb" if es_hoy else "1px solid #232838"
+            sombra = "box-shadow: 0 0 0 3px rgba(37,99,235,0.15);" if es_hoy else ""
             eventos_dia = eventos_por_dia.get(dia, [])
             eventos_html = ""
             for hora, titulo in eventos_dia[:3]:
                 titulo_esc = htmlmod.escape(titulo)[:22]
                 prefijo = f"{hora} " if hora else ""
-                eventos_html += f'<div style="background:#2563eb33; color:#c7d2fe; font-size:10px; padding:2px 4px; border-radius:4px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{prefijo}{titulo_esc}</div>'
+                eventos_html += f'<div style="background:linear-gradient(135deg, rgba(37,99,235,0.25), rgba(124,58,237,0.25)); color:#c7d2fe; font-size:10px; padding:2px 4px; border-radius:4px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{prefijo}{titulo_esc}</div>'
             if len(eventos_dia) > 3:
                 eventos_html += f'<div style="color:#8b93a7; font-size:10px; margin-top:2px;">+{len(eventos_dia)-3} más</div>'
 
             celda = (
-                f'<div style="min-height:90px; background:#151920; border:{borde}; border-radius:8px; padding:6px;">'
+                f'<div style="min-height:90px; background:linear-gradient(155deg, rgba(30,35,48,0.7), rgba(18,21,29,0.7)); border:{borde}; border-radius:10px; padding:6px; {sombra}">'
                 f'<div style="color:#e5e7eb; font-size:13px; font-weight:600;">{dia}</div>'
                 f'{eventos_html}'
                 f'</div>'
@@ -473,7 +545,7 @@ elif seccion == "🏋️ Entrenos":
         df_ejercicio = df_raw[df_raw["Ejercicio"] == ejercicio_sel]
         df_max_dia = df_ejercicio.groupby("Fecha")["1RM Estimado"].max().reset_index()
         fig_1rm = px.line(df_max_dia, x="Fecha", y="1RM Estimado", markers=True,
-                           title=f"1RM estimado — {ejercicio_sel}")
+                           title=f"1RM estimado — {ejercicio_sel}", color_discrete_sequence=[PALETA[0]])
         st.plotly_chart(estilizar(fig_1rm), use_container_width=True)
 
         col_a, col_b = st.columns(2)
@@ -481,12 +553,12 @@ elif seccion == "🏋️ Entrenos":
             st.subheader("💪 Volumen por grupo muscular")
             df_sin_calentamiento = df_raw[df_raw["Calentamiento"] != "Sí"]
             vol_grupo = df_sin_calentamiento.groupby("Grupo_Muscular")["Volumen Serie"].sum().reset_index()
-            fig_grupo = px.pie(vol_grupo, names="Grupo_Muscular", values="Volumen Serie", hole=0.5)
+            fig_grupo = px.pie(vol_grupo, names="Grupo_Muscular", values="Volumen Serie", hole=0.55, color_discrete_sequence=PALETA)
             st.plotly_chart(estilizar(fig_grupo), use_container_width=True)
 
         with col_b:
             st.subheader("📊 Volumen por sesión")
-            fig_vol = px.bar(df_summary.sort_values("Fecha"), x="Fecha", y="Volumen Total (kg)")
+            fig_vol = px.bar(df_summary.sort_values("Fecha"), x="Fecha", y="Volumen Total (kg)", color_discrete_sequence=[PALETA[0]])
             st.plotly_chart(estilizar(fig_vol), use_container_width=True)
 
         with st.expander("Ver tabla completa de entrenos"):
@@ -517,7 +589,7 @@ elif seccion == "✅ Hábitos":
         resumen["Porcentaje"] = (resumen["Cumplido"] * 100).round(1)
         resumen = resumen.sort_values("Porcentaje", ascending=False)
         fig_pct = px.bar(resumen, x="Habito", y="Porcentaje", text="Porcentaje",
-                          color="Porcentaje", color_continuous_scale=[[0, "#e57373"], [1, "#66bb6a"]])
+                          color="Porcentaje", color_continuous_scale=[[0, "#ef4444"], [0.5, "#f59e0b"], [1, "#10b981"]])
         fig_pct.update_traces(texttemplate='%{text}%', textposition='outside')
         fig_pct.update_layout(coloraxis_showscale=False)
         st.plotly_chart(estilizar(fig_pct), use_container_width=True)
@@ -528,7 +600,7 @@ elif seccion == "✅ Hábitos":
         fig_heatmap = px.imshow(
             df_pivot.astype(float),
             labels=dict(x="Fecha", y="Hábito", color="Cumplido"),
-            color_continuous_scale=[[0, "#e57373"], [1, "#66bb6a"]],
+            color_continuous_scale=[[0, "#ef4444"], [1, "#10b981"]],
             aspect="auto",
         )
         fig_heatmap.update_layout(coloraxis_showscale=False)
