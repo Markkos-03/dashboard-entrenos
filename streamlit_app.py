@@ -294,7 +294,7 @@ with st.sidebar:
     st.divider()
     seccion = st.radio(
         "Navegación",
-        ["🏋️ Entrenos", "✅ Hábitos", "📅 Calendario"],
+        ["🏠 Inicio", "🏋️ Entrenos", "✅ Hábitos", "📅 Calendario"],
         label_visibility="collapsed",
     )
     st.divider()
@@ -302,8 +302,147 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
+# ============ INICIO ============
+if seccion == "🏠 Inicio":
+    ahora = datetime.now()
+    dias_es = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
+    meses_es = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+    fecha_bonita = f"{dias_es[ahora.weekday()].capitalize()}, {ahora.day} de {meses_es[ahora.month-1]} de {ahora.year}"
+
+    st.title(f"¡Buenas, Marcos! 👋")
+    st.caption(fecha_bonita)
+
+    df_habitos_home = cargar_datos_habitos()
+    df_raw_home, df_summary_home = cargar_datos_entrenos()
+
+    col_izq, col_centro, col_der = st.columns([1.1, 1.4, 1])
+
+    # ---- Columna izquierda: Habitos diarios ----
+    with col_izq:
+        hoy_str = ahora.strftime("%d/%m/%Y")
+        if not df_habitos_home.empty:
+            df_hoy_habitos = df_habitos_home[df_habitos_home["Fecha"] == hoy_str]
+            completados = int(df_hoy_habitos["Cumplido"].sum())
+            total = len(df_hoy_habitos) if len(df_hoy_habitos) > 0 else len(HABITOS)
+            st.markdown(f"""
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div class="card-label" style="margin-bottom:0;">HÁBITOS DIARIOS</div>
+                        <div style="color:#8b93a7; font-size:13px;">{completados}/{total}</div>
+                    </div>
+            """, unsafe_allow_html=True)
+            for habito in HABITOS:
+                fila = df_hoy_habitos[df_hoy_habitos["Habito"] == habito]
+                cumplido = bool(fila["Cumplido"].iloc[0]) if len(fila) > 0 else False
+                icono = "✅" if cumplido else "⚪"
+                st.markdown(f'<div style="padding:6px 0; border-bottom:1px solid #262b36; color:#e5e7eb; font-size:14px;">{icono} {habito}</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.info("Sin datos de hábitos todavía.")
+
+    # ---- Columna centro: Entreno de hoy + PRs + Resumen semanal ----
+    with col_centro:
+        st.markdown('<div class="card-label">ENTRENAMIENTO DE HOY 💪</div>', unsafe_allow_html=True)
+        if not df_raw_home.empty:
+            df_raw_home["Fecha"] = pd.to_datetime(df_raw_home["Fecha"], format="%d/%m/%Y", errors="coerce")
+            df_raw_home["Peso (kg)"] = df_raw_home["Peso (kg)"].apply(parsear_numero_es)
+            df_raw_home["Reps"] = df_raw_home["Reps"].apply(parsear_numero_es)
+            hoy_ts = pd.Timestamp(ahora.date())
+            df_hoy_entreno = df_raw_home[df_raw_home["Fecha"] == hoy_ts]
+
+            if df_hoy_entreno.empty:
+                st.markdown('<div class="card">Todavía no has subido ningún entreno hoy.</div>', unsafe_allow_html=True)
+            else:
+                resumen_hoy = df_hoy_entreno.groupby("Ejercicio").agg(
+                    Series=("Peso (kg)", "count"),
+                    Peso_max=("Peso (kg)", "max"),
+                ).reset_index()
+                filas_html = ""
+                for _, r in resumen_hoy.iterrows():
+                    filas_html += f'<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #262b36; font-size:14px; color:#e5e7eb;"><span>{r["Ejercicio"]}</span><span style="color:#8b93a7;">{int(r["Series"])} series · {r["Peso_max"]:.0f} kg</span></div>'
+                st.markdown(f'<div class="card">{filas_html}</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="card-label" style="margin-top:14px;">🏆 PRs PERSONALES (peso máximo histórico)</div>', unsafe_allow_html=True)
+            prs = df_raw_home.groupby("Ejercicio")["Peso (kg)"].max().reset_index().sort_values("Peso (kg)", ascending=False).head(4)
+            cols_pr = st.columns(len(prs)) if len(prs) > 0 else []
+            for i, (_, r) in enumerate(prs.iterrows()):
+                with cols_pr[i]:
+                    tarjeta(r["Ejercicio"][:16], f'{r["Peso (kg)"]:.0f} kg')
+        else:
+            st.info("Todavía no hay entrenos guardados.")
+
+        st.markdown('<div class="card-label" style="margin-top:14px;">📅 RESUMEN SEMANAL</div>', unsafe_allow_html=True)
+        if not df_habitos_home.empty:
+            inicio_semana = ahora - timedelta(days=ahora.weekday())
+            dias_cortos = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"]
+            cols_semana = st.columns(7)
+            for i in range(7):
+                fecha_dia = inicio_semana + timedelta(days=i)
+                fecha_str_dia = fecha_dia.strftime("%d/%m/%Y")
+                df_dia = df_habitos_home[df_habitos_home["Fecha"] == fecha_str_dia]
+                todos_cumplidos = len(df_dia) > 0 and bool(df_dia["Cumplido"].all())
+                hay_datos = len(df_dia) > 0
+                if todos_cumplidos:
+                    icono = "✅"
+                elif hay_datos:
+                    icono = "⚪"
+                else:
+                    icono = "·"
+                with cols_semana[i]:
+                    st.markdown(f'<div style="text-align:center;"><div style="color:#8b93a7; font-size:11px;">{dias_cortos[i]}</div><div style="font-size:20px;">{icono}</div></div>', unsafe_allow_html=True)
+
+    # ---- Columna derecha: Progreso fisico (placeholder) + Estadisticas ----
+    with col_der:
+        st.markdown("""
+            <div class="card" style="text-align:center; padding:30px 15px;">
+                <div style="font-size:28px; margin-bottom:6px;">⚖️</div>
+                <div class="card-value" style="font-size:16px;">PROGRESO FÍSICO</div>
+                <div class="card-label" style="margin-top:10px;">Próximamente</div>
+                <div style="color:#8b93a7; font-size:12px; margin-top:4px;">Se conectará cuando enlacemos tu báscula.</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="card-label" style="margin-top:14px;">📊 ESTADÍSTICAS</div>', unsafe_allow_html=True)
+        if not df_habitos_home.empty:
+            mejor_racha = 0
+            for h in HABITOS:
+                df_h = df_habitos_home[df_habitos_home["Habito"] == h].sort_values("Fecha_dt") if "Fecha_dt" in df_habitos_home.columns else df_habitos_home[df_habitos_home["Habito"] == h]
+                mejor_racha = max(mejor_racha, calcular_racha_actual(df_h))
+        else:
+            mejor_racha = 0
+
+        entrenos_este_mes = 0
+        if not df_summary_home.empty:
+            df_summary_home["Fecha"] = pd.to_datetime(df_summary_home["Fecha"], format="%d/%m/%Y", errors="coerce")
+            entrenos_este_mes = int((df_summary_home["Fecha"].dt.month == ahora.month).sum())
+
+        tarjeta("🔥 Racha actual", f"{mejor_racha} días")
+        tarjeta("🏋️ Entrenos este mes", entrenos_este_mes)
+
+    st.divider()
+
+    # ---- Notas rapidas (placeholder, aun sin persistencia) ----
+    st.markdown('<div class="card-label">📝 NOTAS RÁPIDAS</div>', unsafe_allow_html=True)
+    st.markdown("""
+        <div class="card">
+            <div style="color:#8b93a7; font-size:13px; margin-bottom:10px;">
+                🚧 Esta sección todavía no guarda datos — hay que conectarla a Google Sheets o Notion. De momento es solo el diseño.
+            </div>
+            <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                    <div style="color:#e5e7eb; font-weight:600; margin-bottom:6px;">¿Qué salió bien hoy?</div>
+                    <div style="color:#8b93a7; font-size:13px;">— (pendiente de conectar)</div>
+                </div>
+                <div style="flex:1; min-width:200px;">
+                    <div style="color:#e5e7eb; font-weight:600; margin-bottom:6px;">¿Qué puedo mejorar?</div>
+                    <div style="color:#8b93a7; font-size:13px;">— (pendiente de conectar)</div>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
 # ============ ENTRENOS ============
-if seccion == "🏋️ Entrenos":
+elif seccion == "🏋️ Entrenos":
     st.title("🏋️ Entrenamientos")
 
     df_raw, df_summary = cargar_datos_entrenos()
