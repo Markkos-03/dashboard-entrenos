@@ -5,6 +5,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timezone
+import calendar as calmod
+import html as htmlmod
 import plotly.express as px
 
 st.set_page_config(page_title="Dashboard Personal", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
@@ -193,14 +195,70 @@ def conectar_calendar():
 
 
 @st.cache_data(ttl=120)
-def cargar_proximos_eventos():
+def cargar_eventos_mes(anio, mes):
     service = conectar_calendar()
-    ahora = datetime.now(timezone.utc).isoformat()
+    primer_dia = datetime(anio, mes, 1, tzinfo=timezone.utc)
+    if mes == 12:
+        siguiente_mes = datetime(anio + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        siguiente_mes = datetime(anio, mes + 1, 1, tzinfo=timezone.utc)
     resultado = service.events().list(
-        calendarId=CALENDAR_ID, timeMin=ahora, maxResults=15,
-        singleEvents=True, orderBy="startTime"
+        calendarId=CALENDAR_ID,
+        timeMin=primer_dia.isoformat(),
+        timeMax=siguiente_mes.isoformat(),
+        singleEvents=True,
+        orderBy="startTime",
+        maxResults=250,
     ).execute()
     return resultado.get("items", [])
+
+
+def agrupar_eventos_por_dia(eventos):
+    agrupado = {}
+    for ev in eventos:
+        inicio_raw = ev["start"].get("dateTime", ev["start"].get("date"))
+        titulo = ev.get("summary", "(Sin título)")
+        if "T" in inicio_raw:
+            dt = datetime.fromisoformat(inicio_raw)
+            dia, hora = dt.day, dt.strftime("%H:%M")
+        else:
+            dt = datetime.strptime(inicio_raw, "%Y-%m-%d")
+            dia, hora = dt.day, ""
+        agrupado.setdefault(dia, []).append((hora, titulo))
+    return agrupado
+
+
+def construir_html_calendario(anio, mes, eventos_por_dia):
+    matriz = calmod.monthcalendar(anio, mes)
+    dias_semana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    hoy = datetime.now().date()
+
+    html = '<div style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">'
+    for d in dias_semana:
+        html += f'<div style="text-align:center; color:#8b93a7; font-size:12px; font-weight:600; padding-bottom:4px;">{d}</div>'
+
+    for semana in matriz:
+        for dia in semana:
+            if dia == 0:
+                html += '<div style="min-height:90px;"></div>'
+                continue
+            es_hoy = (anio == hoy.year and mes == hoy.month and dia == hoy.day)
+            borde = "2px solid #2563eb" if es_hoy else "1px solid #262b36"
+            eventos_dia = eventos_por_dia.get(dia, [])
+            eventos_html = ""
+            for hora, titulo in eventos_dia[:3]:
+                titulo_esc = htmlmod.escape(titulo)[:22]
+                prefijo = f"{hora} " if hora else ""
+                eventos_html += f'<div style="background:#2563eb33; color:#c7d2fe; font-size:10px; padding:2px 4px; border-radius:4px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{prefijo}{titulo_esc}</div>'
+            if len(eventos_dia) > 3:
+                eventos_html += f'<div style="color:#8b93a7; font-size:10px; margin-top:2px;">+{len(eventos_dia)-3} más</div>'
+
+            html += f'''<div style="min-height:90px; background:#151920; border:{borde}; border-radius:8px; padding:6px;">
+                <div style="color:#e5e7eb; font-size:13px; font-weight:600;">{dia}</div>
+                {eventos_html}
+            </div>'''
+    html += "</div>"
+    return html
 
 
 def crear_evento_calendar(titulo, fecha_inicio, hora_inicio, fecha_fin, hora_fin, descripcion=""):
@@ -342,30 +400,43 @@ elif seccion == "✅ Hábitos":
 else:
     st.title("📅 Calendario")
 
-    col_izq, col_der = st.columns([3, 2])
+    if "cal_anio" not in st.session_state:
+        hoy = datetime.now()
+        st.session_state["cal_anio"] = hoy.year
+        st.session_state["cal_mes"] = hoy.month
 
-    with col_izq:
-        st.subheader("Próximos eventos")
-        try:
-            eventos = cargar_proximos_eventos()
-        except Exception as e:
-            eventos = []
-            st.error(f"No se pudo conectar con Google Calendar: {e}")
+    col_prev, col_titulo, col_next = st.columns([1, 4, 1])
+    with col_prev:
+        if st.button("◀", use_container_width=True):
+            if st.session_state["cal_mes"] == 1:
+                st.session_state["cal_mes"] = 12
+                st.session_state["cal_anio"] -= 1
+            else:
+                st.session_state["cal_mes"] -= 1
+            st.rerun()
+    with col_titulo:
+        nombre_mes = calmod.month_name[st.session_state["cal_mes"]].capitalize()
+        st.markdown(f"<h3 style='text-align:center;'>{nombre_mes} {st.session_state['cal_anio']}</h3>", unsafe_allow_html=True)
+    with col_next:
+        if st.button("▶", use_container_width=True):
+            if st.session_state["cal_mes"] == 12:
+                st.session_state["cal_mes"] = 1
+                st.session_state["cal_anio"] += 1
+            else:
+                st.session_state["cal_mes"] += 1
+            st.rerun()
 
-        if not eventos:
-            st.info("No tienes eventos próximos, o el calendario está vacío.")
-        else:
-            for evento in eventos:
-                titulo, fecha_str, hora_str = formatear_evento(evento)
-                st.markdown(f"""
-                    <div class="card">
-                        <div class="card-label">{fecha_str} — {hora_str}</div>
-                        <div class="card-value" style="font-size: 18px;">{titulo}</div>
-                    </div>
-                """, unsafe_allow_html=True)
+    try:
+        eventos_mes = cargar_eventos_mes(st.session_state["cal_anio"], st.session_state["cal_mes"])
+        eventos_por_dia = agrupar_eventos_por_dia(eventos_mes)
+        html_cal = construir_html_calendario(st.session_state["cal_anio"], st.session_state["cal_mes"], eventos_por_dia)
+        st.markdown(html_cal, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"No se pudo conectar con Google Calendar: {e}")
 
-    with col_der:
-        st.subheader("➕ Crear evento")
+    st.divider()
+
+    with st.expander("➕ Crear evento"):
         with st.form("form_nuevo_evento", clear_on_submit=True):
             titulo_nuevo = st.text_input("Título")
             fecha_inicio = st.date_input("Fecha")
