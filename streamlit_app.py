@@ -131,8 +131,8 @@ def cargar_datos_entrenos():
     sheet = client.open_by_key(WORKOUTS_SHEET_ID)
     hoja_raw = sheet.worksheet("Workouts_Raw")
     hoja_summary = sheet.worksheet("Workouts_Summary")
-    df_raw = pd.DataFrame(hoja_raw.get_all_records())
-    df_summary = pd.DataFrame(hoja_summary.get_all_records())
+    df_raw = pd.DataFrame(hoja_raw.get_all_records(numericise_ignore=["all"]))
+    df_summary = pd.DataFrame(hoja_summary.get_all_records(numericise_ignore=["all"]))
     return df_raw, df_summary
 
 
