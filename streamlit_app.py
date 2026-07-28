@@ -4,7 +4,7 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import calendar as calmod
 import html as htmlmod
 import plotly.express as px
@@ -323,7 +323,7 @@ if seccion == "🏠 Inicio":
         if not df_habitos_home.empty:
             df_hoy_habitos = df_habitos_home[df_habitos_home["Fecha"] == hoy_str]
             completados = int(df_hoy_habitos["Cumplido"].sum())
-            total = len(df_hoy_habitos) if len(df_hoy_habitos) > 0 else len(HABITOS)
+            total = len(HABITOS)
             st.markdown(f"""
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
