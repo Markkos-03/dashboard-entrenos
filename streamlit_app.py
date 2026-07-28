@@ -104,6 +104,20 @@ def tarjeta(label, valor, sub=None):
     """, unsafe_allow_html=True)
 
 
+def parsear_numero_es(valor):
+    """Convierte numeros con formato español (punto=miles, coma=decimal) a float."""
+    if valor is None or valor == "":
+        return None
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    s = str(valor).strip()
+    s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 def conectar_gspread():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
@@ -192,13 +206,13 @@ if seccion == "🏋️ Entrenos":
         st.info("Todavía no hay entrenos guardados.")
     else:
         df_raw["Fecha"] = pd.to_datetime(df_raw["Fecha"], format="%d/%m/%Y", errors="coerce")
-        df_raw["Peso (kg)"] = pd.to_numeric(df_raw["Peso (kg)"], errors="coerce")
-        df_raw["Reps"] = pd.to_numeric(df_raw["Reps"], errors="coerce")
-        df_raw["1RM Estimado"] = pd.to_numeric(df_raw["1RM Estimado"], errors="coerce")
-        df_raw["Volumen Serie"] = pd.to_numeric(df_raw["Volumen Serie"], errors="coerce")
+        df_raw["Peso (kg)"] = df_raw["Peso (kg)"].apply(parsear_numero_es)
+        df_raw["Reps"] = df_raw["Reps"].apply(parsear_numero_es)
+        df_raw["1RM Estimado"] = df_raw["1RM Estimado"].apply(parsear_numero_es)
+        df_raw["Volumen Serie"] = df_raw["Volumen Serie"].apply(parsear_numero_es)
 
         df_summary["Fecha"] = pd.to_datetime(df_summary["Fecha"], format="%d/%m/%Y", errors="coerce")
-        df_summary["Volumen Total (kg)"] = pd.to_numeric(df_summary["Volumen Total (kg)"], errors="coerce")
+        df_summary["Volumen Total (kg)"] = df_summary["Volumen Total (kg)"].apply(parsear_numero_es)
 
         c1, c2, c3 = st.columns(3)
         with c1:
