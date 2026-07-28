@@ -233,14 +233,14 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
     dias_semana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
     hoy = datetime.now().date()
 
-    html = '<div style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">'
+    partes = ['<div style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">']
     for d in dias_semana:
-        html += f'<div style="text-align:center; color:#8b93a7; font-size:12px; font-weight:600; padding-bottom:4px;">{d}</div>'
+        partes.append(f'<div style="text-align:center; color:#8b93a7; font-size:12px; font-weight:600; padding-bottom:4px;">{d}</div>')
 
     for semana in matriz:
         for dia in semana:
             if dia == 0:
-                html += '<div style="min-height:90px;"></div>'
+                partes.append('<div style="min-height:90px;"></div>')
                 continue
             es_hoy = (anio == hoy.year and mes == hoy.month and dia == hoy.day)
             borde = "2px solid #2563eb" if es_hoy else "1px solid #262b36"
@@ -253,12 +253,16 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
             if len(eventos_dia) > 3:
                 eventos_html += f'<div style="color:#8b93a7; font-size:10px; margin-top:2px;">+{len(eventos_dia)-3} más</div>'
 
-            html += f'''<div style="min-height:90px; background:#151920; border:{borde}; border-radius:8px; padding:6px;">
-                <div style="color:#e5e7eb; font-size:13px; font-weight:600;">{dia}</div>
-                {eventos_html}
-            </div>'''
-    html += "</div>"
-    return html
+            celda = (
+                f'<div style="min-height:90px; background:#151920; border:{borde}; border-radius:8px; padding:6px;">'
+                f'<div style="color:#e5e7eb; font-size:13px; font-weight:600;">{dia}</div>'
+                f'{eventos_html}'
+                f'</div>'
+            )
+            partes.append(celda)
+
+    partes.append("</div>")
+    return "".join(partes)
 
 
 def crear_evento_calendar(titulo, fecha_inicio, hora_inicio, fecha_fin, hora_fin, descripcion=""):
