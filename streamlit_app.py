@@ -17,7 +17,7 @@ CALENDAR_ID = "marcoscas1508@gmail.com"
 
 HABITOS = [
     "Ejercicio hombros", "Gym", "Leer", "No porno",
-    "No azucar", "Movilidad", "Estudiar", "Oracion",
+    "No azúcar", "Movilidad", "Estudiar", "Oración",
 ]
 
 # ---------- Estilo visual ----------
