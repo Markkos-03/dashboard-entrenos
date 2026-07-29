@@ -56,6 +56,11 @@ CSS = """
         margin-bottom: 14px;
         box-shadow: 0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03);
         transition: border-color 0.2s ease;
+        min-width: 120px;
+        box-sizing: border-box;
+        overflow-wrap: normal;
+        word-break: normal;
+        hyphens: none;
     }
     .card:hover {
         border-color: #2f3650;
@@ -68,17 +73,33 @@ CSS = """
         text-transform: uppercase;
         letter-spacing: 0.8px;
         margin-bottom: 8px;
+        overflow-wrap: normal;
+        word-break: normal;
+        white-space: normal;
     }
     .card-value {
         color: #ffffff;
-        font-size: 28px;
+        font-size: clamp(16px, 4vw, 28px);
         font-weight: 700;
         letter-spacing: -0.3px;
+        overflow-wrap: normal;
+        word-break: normal;
+        white-space: normal;
+        line-height: 1.3;
     }
     .card-sub {
         color: #4ade80;
         font-size: 13px;
         margin-top: 4px;
+        overflow-wrap: normal;
+        word-break: normal;
+    }
+
+    [data-testid="column"] {
+        min-width: 130px !important;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
     }
 
     h1 {
